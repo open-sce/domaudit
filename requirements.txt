@@ -1,0 +1,6 @@
+boto3==1.24.84
+flask==2.0.3
+gunicorn==20.1.0
+flask-healthz==0.0.3
+python-keycloak==2.15.3
+kubernetes==26.1.0
