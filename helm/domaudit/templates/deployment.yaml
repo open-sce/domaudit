@@ -19,6 +19,13 @@ spec:
       {{- end }}
       labels:
         {{- include "domaudit.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        mongodb-replicaset-client: "true"
+        git-client: "true"
+        keycloak-client: "true"
+        fluentd-client: "true"
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -28,25 +35,73 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: domaudit
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          args:
+            - python
+            - -m
+            - domaudit.domaudit
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: {{ .Values.config.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz/live
               port: http
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz/ready
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            {{- with .Values.podEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            - name: FLASK_RUN_PORT
+              value: "{{ .Values.config.port }}"
+            - name: DOMINO_API_HOST
+              value: "http://nucleus-frontend.{{ .Release.Namespace }}:80"
+            - name: GIT_HOST
+              value: "git.{{ .Release.Namespace }}:80"
+            - name: MONGO_HOST
+              value: "mongodb-replicaset.{{ .Release.Namespace }}:27017"
+            - name: KEYCLOAK_HOST
+              value: "keycloak-http.{{ .Release.Namespace }}:80"
+            - name: GIT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: domino-git-repo
+            - name: GIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: api-key
+                  name: domino-git-repo
+            - name: MONGO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: user
+                  name: mongodb-replicaset-admin
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: mongodb-replicaset-admin
+            - name: KEYCLOAK_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: keycloak-http
+            - name: KEYCLOAK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: keycloak-http
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
