@@ -2,7 +2,7 @@ import logging
 
 from flask_healthz import HealthError
 
-from field_audit import FLASK_APP_NAME
+from domaudit import FLASK_APP_NAME
 
 
 logger = logging.getLogger(FLASK_APP_NAME)
