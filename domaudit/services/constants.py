@@ -1,11 +1,10 @@
 # Endpoints
 WHO_AM_I_ENDPOINT = "v4/auth/principal"
+USER_ENDPOINT = "v4/users/self"
 GET_PROJECTS_ENDPOINT = "v4/projects"
 
 ### Domino API Constants ###
-DOMINO_API_KEY = "domino_api_key"  # TODO: Remove this (only used for service principal logic)
 DOMINO_HEADERS_API_KEY = "X-Domino-Api-Key"
-DOMINO_HEADERS_MLFLOW_DATA = "X-Domino-Mlflow-Data"
 DOMINO_PLAY_SESSION_COOKIE = "PLAY_SESSION"
 
 # Values from user request
