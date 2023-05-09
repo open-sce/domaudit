@@ -40,9 +40,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           args:
-            - python
-            - -m
-            - domaudit.domaudit
+            - gunicorn
+            - domaudit.domaudit:create_app()
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
