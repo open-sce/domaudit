@@ -1,1 +1,1 @@
-FLASK_APP_NAME = "field-audit"
+FLASK_APP_NAME = "domaudit"
