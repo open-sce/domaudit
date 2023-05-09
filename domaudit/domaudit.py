@@ -9,10 +9,17 @@ import requests
 from domaudit.services import constants
 from domaudit import FLASK_APP_NAME
 from functools import wraps, partial
+from domaudit.user_audit.user_audit import get_user_events
 
 constants.DOMINO_API_HOST = os.getenv("DOMINO_API_HOST", default="http://nucleus-frontend.domino-platform:80")
 
 def create_app(test_config=None):
+    logging.getLogger(FLASK_APP_NAME)
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.getLevelName(os.getenv("LOG_LEVEL", default="INFO")),
+        datefmt="%H:%M:%S",
+    )
     app = Flask(FLASK_APP_NAME)
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -35,10 +42,13 @@ def create_app(test_config=None):
 
     logging.info("Starting up Field Audit API service")
     logging.info("Domino Nucleus URI=" + constants.DOMINO_API_HOST)
+    
+    # @Blake: Do you need this? Its not being set via helm atm
     logging.info(f"Domino Public URI={constants.DOMINO_PUBLIC_URI}")
 
     # Authentication decorator
     # Checks request headers for a form of auth and uses to identify the user. Anonymous users are rejected.
+    # Code stolen shamelessly from mlflow proxy work done by Noah
     def _authenticate_user(f, is_admin):
         @wraps(f)
         def authenticate(*args, **kwargs):
@@ -87,6 +97,7 @@ def create_app(test_config=None):
     @authenticate_user
     def project_audit(user, auth_header,**kwargs):
         logging.debug(f"######## [{request.method}]")
+        logging.info(f"Authenticated request for project_audit from {user}")
         response = {"Hello User": user["fullName"]}
 
         # TODO: get project audit, format as json, return
@@ -98,19 +109,21 @@ def create_app(test_config=None):
     @authenticate_admin_user
     def user_audit(user, auth_header,**kwargs):
         logging.debug(f"######## [{request.method}]")
-        response = {"Hello Admin" : user["fullName"]}
+        logging.info(f"Authenticated Admin request for user audit from {user}")
 
         # TODO: get User audit from keycloak, format as json, return
         # Optional time frame input. Default 30(?) days
         # Admin only
+
         
-        return response
+        return get_user_events(request.args)
 
     @app.route("/telemetry_audit", methods=["GET"])
     @authenticate_user
     def telemetry_audit(user, auth_header, **kwargs):
         logging.debug(f"######## [{request.method}]")
         response = {"Hello User": user["fullName"]}
+        logging.info(f"Authenticated Telemetry request for user audit from {user}")
 
         # TODO: get User audit from telemetry records, format as json, return
         # Required input: either user, or project, or both
@@ -127,5 +140,4 @@ if __name__ == "__main__":
     # gunicorn uses port, but flask has a different default
     PROXY_PORT = os.getenv("FLASK_RUN_PORT", default="8000")
 
-    logging.info("Listening on port " + str(PROXY_PORT))
     create_app().run(port=PROXY_PORT, host="0.0.0.0")
