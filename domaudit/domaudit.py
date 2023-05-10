@@ -10,6 +10,7 @@ from domaudit.services import constants
 from domaudit import FLASK_APP_NAME
 from functools import wraps, partial
 from domaudit.user_audit.user_audit import get_user_events
+from domaudit.project_audit import audit
 
 constants.DOMINO_API_HOST = os.getenv("DOMINO_API_HOST", default="http://nucleus-frontend.domino-platform:80")
 
@@ -99,11 +100,11 @@ def create_app(test_config=None):
         logging.debug(f"######## [{request.method}]")
         logging.info(f"Authenticated request for project_audit from {user}")
         response = {"Hello User": user["fullName"]}
-
+        blake = audit.main(auth_header)
         # TODO: get project audit, format as json, return
         # Validate user has access to project
         
-        return response
+        return blake
 
     @app.route("/user_audit", methods=["GET"])
     @authenticate_admin_user
