@@ -4,7 +4,9 @@ ENV PYTHONUNBUFFERED=true
 ENV FLASK_ENV=production
 ENV LOG_LEVEL=DEBUG
 ENV PYTHONPATH=/app
+ENV GUNICORN_CMD_ARGS="--timeout 1200 --worker-class gevent --workers 3 --config=/usr/local/bin/gunicorn-gevent.conf.py --chdir /app -b 0.0.0.0"
 ENV DOMINO_API_HOST=https://prod-field.cs.domino.tech
+
 
 RUN groupadd --gid 1000 domino && \
     useradd --uid 1000 --gid 1000 domino -m -d /app
@@ -16,10 +18,15 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-USER domino
-ADD requirements.txt .
-RUN pip install --user -r requirements.txt
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+
+COPY --chown=domino:domino ./gunicorn-gevent.conf.py /usr/local/bin/gunicorn-gevent.conf.py
 
 COPY --chown=domino:domino domaudit /app/domaudit
 
-
+USER domino
