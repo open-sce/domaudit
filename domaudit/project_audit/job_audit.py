@@ -14,7 +14,7 @@ def api_fail(status_code, origin):
     """
     Error message for if we don't get the expected htp code
     """
-    print(f"An API error has occured whilst running {origin}. Status code: {status_code}")
+    logging.error(f"An API error has occured whilst running {origin}. Status code: {status_code}")
     exit(1)
 
 
