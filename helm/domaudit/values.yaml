@@ -8,7 +8,7 @@ image:
   repository: quay.io/domino/domaudit
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "useraudit"
+  tag: "0.1.1"
 
 config:
   port: 8000
@@ -66,11 +66,11 @@ ingress:
 
 resources: 
   limits:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 500m
+    memory: 512Mi
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 500m
+    memory: 512Mi
 
 autoscaling:
   enabled: false

@@ -6,14 +6,7 @@ import datetime
 from joblib import Parallel, delayed
 from domaudit.services import constants
 
-project_name = os.getenv('DOMINO_PROJECT_NAME', 'blake')
-project_id = os.getenv('DOMINO_PROJECT_ID', '640da44d46197615f41ce6b8')
-project_owner = os.getenv('DOMINO_PROJECT_OWNER', 'blake_moore')
-api_host = os.getenv('DOMINO_API_HOST', 'https://prod-field.cs.domino.tech')
-if os.getenv('DOMINO_IS_GIT_BASED'):
-    output_location = '/mnt/artifacts/'
-else:
-    output_location = '/mnt/results/'
+api_host = os.getenv('DOMINO_API_HOST')
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -21,8 +14,22 @@ def api_fail(status_code, origin):
     """
     Error message for if we don't get the expected htp code
     """
-    print(f"An API error has occured whilst running {origin}. Status code: {status_code}")
+    logging.error(f"An API error has occured whilst running {origin}. Status code: {status_code}")
     exit(1)
+
+
+def get_project_id(project_name, project_owner, auth_header):
+    """
+    Returns if of a project
+    """
+    url = f"{api_host}/{constants.GATEWAY_ENDPOINT}/projects/findProjectByOwnerAndName"
+    params = {"ownerName": project_owner,
+              "projectName": project_name }
+    result = requests.get(url, params=params, headers=auth_header)
+    if result.status_code != 200:
+        api_fail(result.status_code, "get_project_owner")
+    project_id = result.json().get("id", None)
+    return project_id    
 
 
 def get_project_owner(project_id, auth_header):
@@ -79,25 +86,21 @@ def get_goals(project_id, auth_header):
     return goals
 
 
-def aggregate_job_data(job_ids, auth_header, parallelize=True):
+def aggregate_job_data(job_ids, auth_header, threads):
     jobs = {}
-    if parallelize:
-        def process(job_id):
-            return get_job_data(job_id, auth_header)
-        result = Parallel(n_jobs=os.cpu_count())(delayed(process)(job_id) for job_id in job_ids)
-        for job in result:
-            jobs[job.get("id", None)] = job
-    else:
-        for job_id in job_ids:
-            job = get_job_data(job_id, auth_header)
-            jobs[job.get("id", None)] = job
+    def process(job_id):
+        return get_job_data(job_id, auth_header)
+    result = Parallel(n_jobs=threads)(delayed(process)(job_id) for job_id in job_ids)
+    for job in result:
+        jobs[job.get("id", None)] = job
     return jobs
+
 
 def convert_datetime(time_str):
     return datetime.datetime.fromtimestamp(time_str / 1e3, tz=datetime.timezone.utc).strftime('%F %X:%f %Z')
 
 
-def generate_report(jobs, goals, project_name, project_owner):
+def generate_report(jobs, goals, project_name, project_owner, project_id):
     tidy_jobs = {}
     for job in jobs:
         tidy_jobs[job] = {}
@@ -156,33 +159,43 @@ def generate_csv(data, filename):
     df = pd.DataFrame.from_dict(data, orient='index')
     df.to_csv(filename, header=True, index=False)
 
-def main(auth_header):
+
+def main(auth_header, requesting_user, args=None, generate_csv=None):
     t0 = datetime.datetime.now()
-    logging.info(f"Generating audit report for {project_name}...")
-    logging.info("Generating list of project IDs for report...")
+    if not all(key in args for key in ("project_name","project_owner","project_id")):
+        logging.error(f"No project details have been supplied. Args sent: {args}")
+        error = {
+            "message": "Usage: /project_audit?project_name=<project_name>&project_owner=<project_owner>&project_id=<project_id>"
+        }
+        return error
+    project_id = args.get('project_id', None)
+    project_name = args.get('project_name', None)
+    project_owner = args.get('project_owner', None)
+    # threads = int(args.get('threads', 1))
+    threads = os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1)
+    logging.info(f"Args sent: {args}")
+    logging.info(f"{requesting_user} requested audit report for {project_name}...")
     goals = get_goals(project_id, auth_header)
     job_ids = get_jobs(project_id, auth_header)
     logging.info(f"Found {len(job_ids)} jobs to report. Aggregating job metadata...")
-    try:
-        logging.info(f"Attempting parallelized API queries...")
-        t = datetime.datetime.now()    
-        jobs = aggregate_job_data(job_ids, auth_header, parallelize=True)
+    logging.info(f"Attempting API queries using {threads} thread(s)...")
+    t = datetime.datetime.now()    
+    jobs = aggregate_job_data(job_ids, auth_header, threads=threads)
+    t = datetime.datetime.now() - t
+    logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
+    report_data = generate_report(jobs,goals,project_name, project_owner, project_id)
+    if generate_csv:
+        # if os.getenv('DOMINO_IS_GIT_BASED'):
+        #     output_location = '/mnt/artifacts/'
+        # else:
+        #     output_location = '/mnt/results/'
+        filename = f"{output_location}/{project_name}_audit_report_{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%X%Z')}.csv"
+        logging.info(f"Saving report to: {filename}")
+        generate_csv(report_data, filename)
         t = datetime.datetime.now() - t
-        logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")
-    except:
-        logging.info(f"Parallel queries failed, attempting single-threaded API queries...")
-        t = datetime.datetime.now()
-        jobs = aggregate_job_data(job_ids, auth_header, parallelize=False)
-        t = datetime.datetime.now() - t
-        logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")   
-    logging.info(f"Generating report data...")        
-    report_data = generate_report(jobs,goals,project_name, project_owner)
-    filename = f"{output_location}/{project_name}_audit_report_{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%X%Z')}.csv"
-    # logging.info(f"Saving report to: {filename}")
-    # generate_csv(report_data, filename)
-    # t = datetime.datetime.now() - t0
     logging.info(f"Audit report generated in {str(round(t.total_seconds(),1))} seconds.")
     return report_data
+
 
 if __name__ == '__main__':
     main()
