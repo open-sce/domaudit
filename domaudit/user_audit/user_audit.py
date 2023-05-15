@@ -1,5 +1,7 @@
 import logging
 from keycloak import KeycloakAdmin
+from keycloak.keycloak_admin import KeycloakAdmin
+from keycloak.urls_patterns import URL_ADMIN_EVENTS
 from os import getenv
 from flask import jsonify
 from datetime import datetime
@@ -48,7 +50,13 @@ def get_user_events(data=None):
                 args["user"] = user['id']
                 break
     
-    events = keycloak_admin.get_events(query=args)
+    # We need to do this because python-keycloak's get_events
+    #  does not support pagination, so we call the __fetch_all
+    #  class method directly
+
+    path = {"realm-name": keycloak_admin.realm_name}
+    events = keycloak_admin._KeycloakAdmin__fetch_all(URL_ADMIN_EVENTS.format(**path),args)
+
     response = []
     for event in events:
         clean_time = datetime.utcfromtimestamp(
