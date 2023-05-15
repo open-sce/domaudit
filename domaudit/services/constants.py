@@ -4,6 +4,7 @@ USER_ENDPOINT = "v4/users/self"
 GET_PROJECTS_ENDPOINT = "v4/projects"
 JOBS_ENDPOINT = "v4/jobs"
 PROJECTMANAGEMENT_ENDPOINT = "v4/projectManagement"
+GATEWAY_ENDPOINT = "v4/gateway"
 
 ### Domino API Constants ###
 DOMINO_HEADERS_API_KEY = "X-Domino-Api-Key"
