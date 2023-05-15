@@ -1,2 +1,4 @@
+*.whl
+*.gz
 *.pyc
 *.egg-info
