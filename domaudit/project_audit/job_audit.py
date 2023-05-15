@@ -172,7 +172,7 @@ def main(auth_header, requesting_user, args=None, generate_csv=None):
     project_name = args.get('project_name', None)
     project_owner = args.get('project_owner', None)
     # threads = int(args.get('threads', 1))
-    threads = 1
+    threads = os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1)
     logging.info(f"Args sent: {args}")
     logging.info(f"{requesting_user} requested audit report for {project_name}...")
     goals = get_goals(project_id, auth_header)
