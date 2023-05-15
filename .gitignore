@@ -2,3 +2,5 @@
 *.gz
 *.pyc
 *.egg-info
+*.pyc
+.DS_Store
