@@ -109,7 +109,7 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
             for comment_details in jobs.get(job, None).get("comments", '[]'):
                 comment = {
                     'comment-username': comment_details.get("commenter", None).get("username", None),
-                    'comment-timestamp': convert_datetime(comment_details.get("created", None)),
+                    'comment-timestamp': convert_datetime(comment_details.get("created", 0)),
                     'comment-value': comment_details.get("commentBody", None).get("value", None)
                 }
                 comments.append(comment)
@@ -141,12 +141,12 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
         tidy_jobs[job]["Hardware Tier"] = jobs.get(job, None).get("hardwareTier", None)
         tidy_jobs[job]["Username"] = jobs.get(job, None).get("startedBy", None).get("username", None)
         tidy_jobs[job]["Execution Status"] = jobs.get(job, None).get("statuses", None).get("executionStatus", None)
-        tidy_jobs[job]["Submission Time"] = convert_datetime(jobs.get(job, None).get("stageTime", None).get("submissionTime", None))
+        tidy_jobs[job]["Submission Time"] = convert_datetime(jobs.get(job, 0).get("stageTime", 0).get("submissionTime", 0))
         if jobs.get(job, None).get("stageTime", None).get("runStartTime", None):
-            tidy_jobs[job]["Run Start Time"] = convert_datetime(jobs.get(job, None).get("stageTime", None).get("runStartTime", None))
+            tidy_jobs[job]["Run Start Time"] = convert_datetime(jobs.get(job, 0).get("stageTime", 0).get("runStartTime", 0))
         else:
             tidy_jobs[job]["Run Start Time"] = None
-        tidy_jobs[job]["Completed Time"] = convert_datetime(jobs.get(job, None).get("stageTime", None).get("completedTime", None))
+        tidy_jobs[job]["Completed Time"] = convert_datetime(jobs.get(job, 0).get("stageTime", 0).get("completedTime", 0))
         tidy_jobs[job]["Environment Name"] = jobs.get(job, None).get("environment", None).get("environmentName", None)
         tidy_jobs[job]["Environment Version"] = jobs.get(job, None).get("environment", None).get("revisionNumber", None)
         tidy_jobs[job]["Execution Status Completed"] = jobs.get(job, None).get("statuses", None).get("isCompleted", None)
