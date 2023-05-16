@@ -1,10 +1,9 @@
-import csv
-import json
 import requests
 from os import getenv
 import sys
 from argparse import ArgumentParser
 import time
+import pandas as pd 
 
 DOM_NAMESPACE = getenv("DOMINO_API_HOST").split(".")[1].split(":")[0]
 DOMAUDIT_HOST = f"http://domaudit.{DOM_NAMESPACE}"
@@ -21,17 +20,12 @@ def make_call(host,parameters=None):
         print(f"Error when making request : {response.text}")
         raise Exception(response.text)
 
+
 def write_csv(prefix, json):
-    columns = list(set([x for row in json for x in row.keys()]))
     timestr = time.strftime("%Y%m%d-%H%M%S")
     filename = f"{prefix}-{timestr}.csv"
-
-    with open(filename, 'w') as out_file:
-        csv_w = csv.writer(out_file)
-        csv_w.writerow(columns)
-        
-        for i_r in json:
-            csv_w.writerow(map(lambda x: i_r.get(x, ""), columns))
+    df = pd.DataFrame.from_dict(data, orient='index')
+    df.to_csv(filename, header=True, index=False)
     
     print(f"{prefix} Output written to {filename}")
 
