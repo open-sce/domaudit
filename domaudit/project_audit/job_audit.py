@@ -1,6 +1,5 @@
 import os
 import logging
-import pandas as pd
 import requests
 import datetime
 from joblib import Parallel, delayed
@@ -109,7 +108,7 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
             for comment_details in jobs.get(job, None).get("comments", '[]'):
                 comment = {
                     'comment-username': comment_details.get("commenter", None).get("username", None),
-                    'comment-timestamp': convert_datetime(comment_details.get("created", None)),
+                    'comment-timestamp': convert_datetime(comment_details.get("created", 0)),
                     'comment-value': comment_details.get("commentBody", None).get("value", None)
                 }
                 comments.append(comment)
@@ -141,12 +140,12 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
         tidy_jobs[job]["Hardware Tier"] = jobs.get(job, None).get("hardwareTier", None)
         tidy_jobs[job]["Username"] = jobs.get(job, None).get("startedBy", None).get("username", None)
         tidy_jobs[job]["Execution Status"] = jobs.get(job, None).get("statuses", None).get("executionStatus", None)
-        tidy_jobs[job]["Submission Time"] = convert_datetime(jobs.get(job, None).get("stageTime", None).get("submissionTime", None))
+        tidy_jobs[job]["Submission Time"] = convert_datetime(jobs.get(job, 0).get("stageTime", 0).get("submissionTime", 0))
         if jobs.get(job, None).get("stageTime", None).get("runStartTime", None):
-            tidy_jobs[job]["Run Start Time"] = convert_datetime(jobs.get(job, None).get("stageTime", None).get("runStartTime", None))
+            tidy_jobs[job]["Run Start Time"] = convert_datetime(jobs.get(job, 0).get("stageTime", 0).get("runStartTime", 0))
         else:
             tidy_jobs[job]["Run Start Time"] = None
-        tidy_jobs[job]["Completed Time"] = convert_datetime(jobs.get(job, None).get("stageTime", None).get("completedTime", None))
+        tidy_jobs[job]["Completed Time"] = convert_datetime(jobs.get(job, 0).get("stageTime", 0).get("completedTime", 0))
         tidy_jobs[job]["Environment Name"] = jobs.get(job, None).get("environment", None).get("environmentName", None)
         tidy_jobs[job]["Environment Version"] = jobs.get(job, None).get("environment", None).get("revisionNumber", None)
         tidy_jobs[job]["Execution Status Completed"] = jobs.get(job, None).get("statuses", None).get("isCompleted", None)
@@ -155,12 +154,7 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
     return tidy_jobs
 
 
-def generate_csv(data, filename):
-    df = pd.DataFrame.from_dict(data, orient='index')
-    df.to_csv(filename, header=True, index=False)
-
-
-def main(auth_header, requesting_user, args=None, generate_csv=None):
+def main(auth_header, requesting_user, args=None):
     t0 = datetime.datetime.now()
     if not all(key in args for key in ("project_name","project_owner","project_id")):
         logging.error(f"No project details have been supplied. Args sent: {args}")
@@ -184,15 +178,6 @@ def main(auth_header, requesting_user, args=None, generate_csv=None):
     t = datetime.datetime.now() - t
     logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
     report_data = generate_report(jobs,goals,project_name, project_owner, project_id)
-    if generate_csv:
-        # if os.getenv('DOMINO_IS_GIT_BASED'):
-        #     output_location = '/mnt/artifacts/'
-        # else:
-        #     output_location = '/mnt/results/'
-        filename = f"{output_location}/{project_name}_audit_report_{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%X%Z')}.csv"
-        logging.info(f"Saving report to: {filename}")
-        generate_csv(report_data, filename)
-        t = datetime.datetime.now() - t
     logging.info(f"Audit report generated in {str(round(t.total_seconds(),1))} seconds.")
     return report_data
 

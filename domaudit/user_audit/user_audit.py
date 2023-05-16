@@ -57,29 +57,27 @@ def get_user_events(data=None):
     path = {"realm-name": keycloak_admin.realm_name}
     events = keycloak_admin._KeycloakAdmin__fetch_all(URL_ADMIN_EVENTS.format(**path),args)
 
-    response = []
+    response = {}
     for event in events:
+        time = event.get("time", None)
+        response[time] = {}
         clean_time = datetime.utcfromtimestamp(
-                event['time']/1000.0
+                event.get("time", 0)/1000.0
             ).strftime(
                 '%Y-%m-%d %H:%M:%S.%f'
             )
         if 'userId' in event:
-            user = all_users.get(event['userId'],None)
+            user = all_users.get(event.get("userId" ,None))
         else:
             user = None
-        clean_event = {"time": clean_time,
-                       "type": event['type'],
-                       "keycloakUserId": event.get('userId',''),
-                       "ipAddress": event['ipAddress'],
-                       "username" : user['username'] if user else "",
-                       "email" : user['email'] if user else ""
-                       }
-        response.append(clean_event)
+        response[time]["time"] = clean_time,
+        response[time]["type"] = event.get("type", None),
+        response[time]["keycloakUserId"] = event.get('userId',None),
+        response[time]["ipAddress"] = event.get("ipAddress", None),
+        response[time]["username"] = user.get("username", None) if user else "",
+        response[time]["email"] = user.get("email", None) if user else ""
 
-    
-    json_response = jsonify(response)
-    return json_response
+    return response
 
 if __name__ == "__main__":
     get_user_events()
