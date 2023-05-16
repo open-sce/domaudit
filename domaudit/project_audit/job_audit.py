@@ -1,6 +1,5 @@
 import os
 import logging
-import pandas as pd
 import requests
 import datetime
 from joblib import Parallel, delayed
@@ -101,6 +100,7 @@ def convert_datetime(time_str):
 
 
 def generate_report(jobs, goals, project_name, project_owner, project_id):
+    jobs = []
     tidy_jobs = {}
     for job in jobs:
         tidy_jobs[job] = {}
@@ -152,15 +152,11 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
         tidy_jobs[job]["Execution Status Completed"] = jobs.get(job, None).get("statuses", None).get("isCompleted", None)
         tidy_jobs[job]["Execution Status Archived"] = jobs.get(job, None).get("statuses", None).get("isArchived", None)
         tidy_jobs[job]["Execution Status Scheduled"] = jobs.get(job, None).get("statuses", None).get("isScheduled", None)
-    return tidy_jobs
+    jobs.append(tidy_jobs)
+    return jobs
 
 
-def generate_csv(data, filename):
-    df = pd.DataFrame.from_dict(data, orient='index')
-    df.to_csv(filename, header=True, index=False)
-
-
-def main(auth_header, requesting_user, args=None, generate_csv=None):
+def main(auth_header, requesting_user, args=None):
     t0 = datetime.datetime.now()
     if not all(key in args for key in ("project_name","project_owner","project_id")):
         logging.error(f"No project details have been supplied. Args sent: {args}")
@@ -184,15 +180,6 @@ def main(auth_header, requesting_user, args=None, generate_csv=None):
     t = datetime.datetime.now() - t
     logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
     report_data = generate_report(jobs,goals,project_name, project_owner, project_id)
-    if generate_csv:
-        # if os.getenv('DOMINO_IS_GIT_BASED'):
-        #     output_location = '/mnt/artifacts/'
-        # else:
-        #     output_location = '/mnt/results/'
-        filename = f"{output_location}/{project_name}_audit_report_{datetime.datetime.now(tz=datetime.timezone.utc).strftime('%Y-%m-%d_%X%Z')}.csv"
-        logging.info(f"Saving report to: {filename}")
-        generate_csv(report_data, filename)
-        t = datetime.datetime.now() - t
     logging.info(f"Audit report generated in {str(round(t.total_seconds(),1))} seconds.")
     return report_data
 
