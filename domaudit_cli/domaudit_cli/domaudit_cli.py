@@ -21,7 +21,7 @@ def make_call(host,parameters=None):
         raise Exception(response.text)
 
 
-def write_csv(prefix, json):
+def write_csv(prefix, data):
     timestr = time.strftime("%Y%m%d-%H%M%S")
     filename = f"{prefix}-{timestr}.csv"
     df = pd.DataFrame.from_dict(data, orient='index')
