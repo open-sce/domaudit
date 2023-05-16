@@ -18,7 +18,7 @@ def make_call(host,parameters=None):
     if response.status_code == 200:
         return response.json()
     else:
-        print(f"Error when making request : {resonse.text}")
+        print(f"Error when making request : {response.text}")
         raise Exception(response.text)
 
 def write_csv(prefix, json):
