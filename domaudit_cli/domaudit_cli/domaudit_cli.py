@@ -111,6 +111,7 @@ def cli():
             "latest_event_time": args.latest_event_time,
             "activity_source": args.activity_source
         }
+        print(f"*** Only returning the first {args.page_size} activities by date descending ***")
         output = make_call(f"{DOMAUDIT_HOST}{PROJECT_ACTIVITY_PATH}",activity_args)
 
 
