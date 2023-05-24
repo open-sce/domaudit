@@ -1,7 +1,7 @@
 import requests
 from os import getenv
 import sys
-from argparse import ArgumentParser
+import argparse
 import time
 import pandas as pd 
 
@@ -30,7 +30,7 @@ def write_csv(prefix, data):
     print(f"{prefix} Output written to {filename}")
 
 def cli():       
-    parser = ArgumentParser(
+    parser = argparse.ArgumentParser(
                         description='Field solution for extending Domino Audit capabilities')
 
     parser.add_argument("--host", help=f"Domaudit service host - optional, defaults to {DOMAUDIT_HOST}", default=DOMAUDIT_HOST)
@@ -46,6 +46,7 @@ def cli():
     project_parser.add_argument("--project-id", help="Domino Project ID to audit", default=getenv("DOMINO_PROJECT_ID"))
     project_parser.add_argument("--project-name", help="Domino Project name to audit", default=getenv("DOMINO_PROJECT_NAME"))
     project_parser.add_argument("--project-owner", help="Domino Project owner", default=getenv("DOMINO_PROJECT_OWNER"))
+    project_parser.add_argument("--links", action=argparse.BooleanOptionalAction, help="Include links back to Domino", default=False)
 
 
     if len(sys.argv) <= 1:
