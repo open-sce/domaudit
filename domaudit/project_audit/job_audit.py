@@ -155,6 +155,71 @@ def generate_report(jobs, goals, project_name, project_owner, project_id, create
         tidy_jobs[job]["Execution Status Scheduled"] = jobs.get(job, None).get("statuses", None).get("isScheduled", None)
     return tidy_jobs
 
+def get_project_activity(auth_header, requesting_user, args=None):
+    
+    if not "project_id" in args:
+        logging.error(f"No project details have been supplied. Args sent: {args}")
+        error = {
+            "message": "Usage: /project_activity?project_id=<project_id>"
+        }
+        return error
+    
+    logging.info(f"Args sent: {args}")
+
+    project_id = args.get('project_id', None)
+    page_size = args.get('page_size', 500)
+    latest_event_time = args.get('latest_event_time',None)
+    source = args.get('activity_source',None)
+
+    logging.info(f"{requesting_user} requested activity report for {project_id}...")
+
+    url = f"{api_host}/{constants.ACTIVITY_ENDPOINT}?projectId={project_id}&pageSize={page_size}"
+    if latest_event_time:
+        utc_time = datetime.datetime.strptime(latest_event_time, "%Y-%m-%d")
+        epoch_time_ms = round((utc_time - datetime.datetime(1970, 1, 1)).total_seconds()) * 1000
+        url = f"{url}&latestTimeStamp={epoch_time_ms}"
+    
+    if source:
+        url = f"{url}&filterBy={source}"
+
+    result = requests.get(url, headers=auth_header)
+    if result.status_code != 200:
+        api_fail(result.status_code, "get_project_activity")
+    
+    output = {}
+    for activity in result.json()["activity"]:
+        activityBy = activity.get("activityBy",None)
+        commit_message = ""
+        files_changed = ""
+        run_id = ""
+        file_action = ""
+        status = ""
+        if "metadata" in activity:
+            data = activity["metadata"]["data"]
+
+            commit_message = data.get("commitMessage","")
+            files_changed = ",".join(data.get("filesChanged",[]))
+            file_action = data.get("action","")
+            status = data.get("currentStatus","")
+
+        # TODO: what??
+        # if activity["activitySource"] in ["job","workspace"]:
+        #     run_id = activity["sourceId"]
+        # elif "metadata" in activity:
+        #     if activity["metadata"]["data"].get("fileChangedDueTo","") == "workspace"
+         
+        output[activity["timestamp"]] = {
+            "Source": activity["activitySource"],
+            "Activity": activity["activity"],
+            "Timestamp": convert_datetime(activity["timestamp"]),
+            "User": activityBy['username'] if activityBy else "",
+            "Status": status,
+            "CommitMessage": commit_message,
+            "Action": file_action,
+            "Files Changed": files_changed
+        }
+    return output
+
 
 def main(auth_header, requesting_user, args=None):
     t0 = datetime.datetime.now()
