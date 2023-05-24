@@ -168,6 +168,7 @@ def main(auth_header, requesting_user, args=None):
     project_name = args.get('project_name', None)
     project_owner = args.get('project_owner', None)
     create_links = args.get('links', False)
+    create_links = True if create_links.lower() == "true" else False
     # threads = int(args.get('threads', 1))
     threads = os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1)
     logging.info(f"Args sent: {args}")
