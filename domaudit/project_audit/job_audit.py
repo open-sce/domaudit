@@ -4,6 +4,7 @@ import requests
 import datetime
 from joblib import Parallel, delayed
 from domaudit.services import constants
+from flask import make_response
 
 api_host = os.getenv('DOMINO_API_HOST')
 
@@ -162,7 +163,7 @@ def get_project_activity(auth_header, requesting_user, args=None):
         error = {
             "message": "Usage: /project_activity?project_id=<project_id>"
         }
-        return error
+        return make_response(error,400)
     
     logging.info(f"Args sent: {args}")
 
@@ -209,10 +210,10 @@ def get_project_activity(auth_header, requesting_user, args=None):
         #     if activity["metadata"]["data"].get("fileChangedDueTo","") == "workspace"
          
         output[activity["timestamp"]] = {
-            "Source": activity["activitySource"],
             "Activity": activity["activity"],
             "Timestamp": convert_datetime(activity["timestamp"]),
             "User": activityBy['username'] if activityBy else "",
+            "Source": activity["activitySource"],
             "Status": status,
             "CommitMessage": commit_message,
             "Action": file_action,
@@ -228,7 +229,7 @@ def main(auth_header, requesting_user, args=None):
         error = {
             "message": "Usage: /project_audit?project_name=<project_name>&project_owner=<project_owner>&project_id=<project_id>"
         }
-        return error
+        return make_response(error,400)
     project_id = args.get('project_id', None)
     project_name = args.get('project_name', None)
     project_owner = args.get('project_owner', None)
