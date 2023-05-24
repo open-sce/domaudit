@@ -99,7 +99,7 @@ def convert_datetime(time_str):
     return datetime.datetime.fromtimestamp(time_str / 1e3, tz=datetime.timezone.utc).strftime('%F %X:%f %Z')
 
 
-def generate_report(jobs, goals, project_name, project_owner, project_id):
+def generate_report(jobs, goals, project_name, project_owner, project_id, create_links):
     tidy_jobs = {}
     for job in jobs:
         tidy_jobs[job] = {}
@@ -132,10 +132,12 @@ def generate_report(jobs, goals, project_name, project_owner, project_id):
         tidy_jobs[job]['Goals'] = goal_names        
         tidy_jobs[job]['Project Name'] = project_name
         endStateCommit = jobs.get(job, None).get("endState", None).get("commitId", None)
-        commit_url = f"{api_host}/u/{project_owner}/{project_name}/browse?commitId={endStateCommit}"
-        tidy_jobs[job]["Results Commit URL"] = commit_url
-        audit_url = f"{api_host}/projects/{project_id}/auditLog"
-        tidy_jobs[job]["Audit URL"] = audit_url
+        tidy_jobs[job]["Commit ID"] = endStateCommit
+        if create_links:
+            commit_url = f"{api_host}/u/{project_owner}/{project_name}/browse?commitId={endStateCommit}"
+            tidy_jobs[job]["Results Commit URL"] = commit_url
+            audit_url = f"{api_host}/projects/{project_id}/auditLog"
+            tidy_jobs[job]["Audit URL"] = audit_url
         tidy_jobs[job]["Command"] = jobs.get(job, None).get("jobRunCommand", None)
         tidy_jobs[job]["Hardware Tier"] = jobs.get(job, None).get("hardwareTier", None)
         tidy_jobs[job]["Username"] = jobs.get(job, None).get("startedBy", None).get("username", None)
@@ -165,6 +167,7 @@ def main(auth_header, requesting_user, args=None):
     project_id = args.get('project_id', None)
     project_name = args.get('project_name', None)
     project_owner = args.get('project_owner', None)
+    create_links = args.get('links', False)
     # threads = int(args.get('threads', 1))
     threads = os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1)
     logging.info(f"Args sent: {args}")
@@ -177,7 +180,7 @@ def main(auth_header, requesting_user, args=None):
     jobs = aggregate_job_data(job_ids, auth_header, threads=threads)
     t = datetime.datetime.now() - t
     logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
-    report_data = generate_report(jobs,goals,project_name, project_owner, project_id)
+    report_data = generate_report(jobs,goals,project_name, project_owner, project_id, create_links)
     logging.info(f"Audit report generated in {str(round(t.total_seconds(),1))} seconds.")
     return report_data
 
