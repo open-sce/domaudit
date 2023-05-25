@@ -4,3 +4,7 @@
 *.egg-info
 *.pyc
 .DS_Store
+*.csv
+*.json
+*.xlsx
+domaudit_cli/build
