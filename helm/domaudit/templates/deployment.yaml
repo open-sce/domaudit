@@ -26,6 +26,7 @@ spec:
         git-client: "true"
         keycloak-client: "true"
         fluentd-client: "true"
+        nucleus-client: "true"
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
