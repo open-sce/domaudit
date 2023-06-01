@@ -196,7 +196,7 @@ def get_project_activity(auth_header, requesting_user, args=None):
         file_action = ""
         status = ""
         if "metadata" in activity:
-            data = activity["metadata"]["data"]
+            data = activity["metadata"].get("data",{})
 
             commit_message = data.get("commitMessage","")
             files_changed = ",".join(data.get("filesChanged",[]))
