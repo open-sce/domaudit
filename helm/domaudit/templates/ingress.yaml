@@ -1,0 +1,26 @@
+{{if .Values.ingress.enabled -}}
+{{$fullName := include "domaudit.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else -}}
+apiVersion: extensions/v1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "domaudit.labels" . | nindent 4 }}
+  annotations:
+  {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- range $_, $path := .Values.ingress.paths }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |-
+      rewrite "(?i)/{{ $path }}/(.*)" /$1 break;
+      rewrite "(?i)/{{ $path }}$" / break;
+  {{- end}}
+    {{- include "common.ingress.istioAnnotations" . | nindent 4 }}
+spec:
+  {{- include "common.ingress.fullspec" . | indent 2 }}
+{{- end }}
