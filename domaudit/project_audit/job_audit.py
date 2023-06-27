@@ -117,20 +117,30 @@ def generate_report(jobs, goals, project_name, project_owner, project_id, create
         git_repos = []
         if jobs.get(job, None).get("dependentRepositories", None):
             for repo in jobs.get(job, None).get("dependentRepositories", '[]'):
-                repo_uri = repo.get("uri", None)
-                git_repos.append(repo_uri)
+                repo_details = {
+                    "Repo URI": repo.get("uri", None),
+                    "Starting Branch": repo.get("startingBranch", None),
+                    "Starting Commit ID ": repo.get("startingCommitId", None)
+                }
+                # repo_uri = repo.get("uri", None)
+                git_repos.append(repo_details)
         tidy_jobs[job]['Linked Repos'] = git_repos
         dataset_names = []
         if jobs.get(job, None).get("dependentDatasetMounts", None):
             for dataset in jobs.get(job, None).get("dependentDatasetMounts", '[]'):
-                dataset_name = dataset.get("datasetName", None)
-                dataset_names.append(dataset_name)
+                datasets = {
+                    "Dataset Name": dataset.get("datasetName", None),
+                    "Dataset Snapshot version": dataset.get("snapshotVersion", None)
+                }
+                # dataset_name = dataset.get("datasetName", None)
+                dataset_names.append(datasets)
         tidy_jobs[job]['Datasets'] = dataset_names
         goal_names = []
         if jobs.get(job, None).get("goalIds", None):
             for goal_id in jobs.get(job, None).get("goalIds", '[]'):
                 goal_names.append(goals[goal_id])
-        tidy_jobs[job]['Goals'] = goal_names        
+        tidy_jobs[job]['Goals'] = goal_names
+        tidy_jobs[job]['Job Number'] = jobs.get(job, None).get("number", None)  
         tidy_jobs[job]['Project Name'] = project_name
         endStateCommit = jobs.get(job, None).get("endState", None).get("commitId", None)
         tidy_jobs[job]["Commit ID"] = endStateCommit
