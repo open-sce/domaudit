@@ -41,7 +41,7 @@ def get_user_events(data=None):
     users_list = keycloak_admin.get_users()
     all_users = dict()
     for user in users_list:
-        all_users[user['id']] = {"username" : user['username'], "email" : user['email']}
+        all_users[user['id']] = {"username" : user.get('username', None), "email" : user.get('email', None)}
 
     if 'username' in args:
         for user in users_list:
