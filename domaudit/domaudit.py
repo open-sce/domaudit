@@ -103,18 +103,23 @@ def create_app(test_config=None):
         
         return result
 
+    @app.route("/project_activity", methods=["GET"])
+    @authenticate_user
+    def get_project_activity(user, auth_header,**kwargs):
+        logging.info(f"Authenticated request for project_activity from {user.get('email', None)}")
+        requesting_user = user.get('userName', None)
+        result = job_audit.get_project_activity(auth_header, requesting_user, request.args)
+        
+        return result
+
     @app.route("/user_audit", methods=["GET"])
     @authenticate_admin_user
     def user_audit(user, auth_header,**kwargs):
         logging.debug(f"######## [{request.method}]")
         logging.info(f"Authenticated Admin request for user audit from {user}")
-
-        # TODO: get User audit from keycloak, format as json, return
-        # Optional time frame input. Default 30(?) days
-        # Admin only
-
         
         return get_user_events(request.args)
+
 
     @app.route("/telemetry_audit", methods=["GET"])
     @authenticate_user
