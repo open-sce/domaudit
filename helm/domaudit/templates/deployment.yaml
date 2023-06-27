@@ -4,6 +4,9 @@ metadata:
   name: {{ include "domaudit.fullname" . }}
   labels:
     {{- include "domaudit.labels" . | nindent 4 }}
+    {{- if .Values.istio.enabled }}
+    security.istio.io/tlsMode: "istio"
+    {{- end}}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
