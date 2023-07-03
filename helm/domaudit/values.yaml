@@ -8,7 +8,7 @@ image:
   repository: quay.io/domino/domaudit
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v0.3.1"
+  tag: "v0.3.2"
 
 config:
   port: 8000
@@ -74,7 +74,7 @@ affinity: {}
 ingress:
   enabled: true
   paths:
-    - "domaudit"
+    - "domaudit-api"
   host: domino.comany.com
   annotations:
     kubernetes.io/ingress.class: nginx
