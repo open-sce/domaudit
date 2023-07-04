@@ -3,7 +3,7 @@ import sys
 import os
 import logging
 
-from flask import Flask, request, Response
+from flask import Flask, request, Response, make_response
 from flask_healthz import Healthz
 import requests
 from domaudit.services import constants
@@ -13,6 +13,13 @@ from domaudit.user_audit.user_audit import get_user_events
 from domaudit.project_audit import job_audit
 
 constants.DOMINO_API_HOST = os.getenv("DOMINO_API_HOST", default="http://nucleus-frontend.domino-platform:80")
+
+ENDPOINTS = [
+    {"description": "Log and metadata of all project executions", "name": "Project Audit", "endpoint": "/project_audit", "admin": False},
+    {"description": "Output of all Project Activity events", "name": "Project Activity", "endpoint": "/project_activity", "admin": False},
+    {"description": "Keycloak Audit of all user events (Admin Only)", "name": "User Audit", "endpoint": "/user_audit", "admin": True}
+]
+
 
 def create_app(test_config=None):
     logging.getLogger(FLASK_APP_NAME)
@@ -119,7 +126,13 @@ def create_app(test_config=None):
         logging.info(f"Authenticated Admin request for user audit from {user}")
         
         return get_user_events(request.args)
-
+    
+    @app.route("/endpoints", methods=["GET"])
+    def domaudit_endpoints(**kwargs):
+        logging.debug(f"######## [{request.method}]")
+        logging.info(f"Anonymous access to endpoints JSON")
+        
+        return make_response({"endpoints": ENDPOINTS})
 
     @app.route("/telemetry_audit", methods=["GET"])
     @authenticate_user
