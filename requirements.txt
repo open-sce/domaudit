@@ -9,3 +9,5 @@ psycogreen==1.0.2
 gevent==22.10.2
 joblib==1.2.0
 pandas==1.5.3
+dash==2.11.1
+dash-bootstrap-components==1.4.1
