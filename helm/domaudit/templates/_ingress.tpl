@@ -77,3 +77,64 @@ nginx.ingress.kubernetes.io/upstream-vhost: {{ include "domaudit.fullname" $ }}.
 {{- end }}
 {{- end }}
 
+{{- define "common.ingress.uiistioAnnotations" -}}
+{{- if $.Values.istio.enabled }}
+nginx.ingress.kubernetes.io/service-upstream: "true"
+nginx.ingress.kubernetes.io/upstream-vhost: {{ include "domaudit.fullname" $ }}-ui.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+{{- end }}
+{{- end }}
+
+
+{{- define "common.ingress.uifullspec" -}}
+{{- if not .Values.ui.ingress.paths -}}
+{{- $_ := required ".Values.ui.ingress.paths or .Values.ui.ingress.path is required!" .Values.ui.ingress.path -}}
+{{- end -}}
+
+{{- $ingressPaths := or .Values.ui.ingress.paths (compact (list .Values.ui.ingress.path)) -}}
+{{- $ingressHosts := or .Values.ui.ingress.hosts (compact (list .Values.ui.ingress.host)) -}}
+{{- $serviceName := default (include "domaudit.fullname" .) .overrideName -}}
+{{- $servicePort := default "http" .Values.ui.service.port -}}
+
+{{- with .Values.ui.ingress.tlsSecret }}
+tls:
+- hosts:
+  {{- if not $ingressHosts -}}
+  {{- fail ".Values.ui.ingress.host or .hosts is required!" -}}
+  {{- end -}}
+
+  {{- range $_, $host := $ingressHosts }}
+  - {{ $host | quote }}
+  {{- end }}
+  secretName: {{ . }}
+{{- end }}
+
+rules:
+{{- range $_, $path := $ingressPaths }}
+  {{- if $ingressHosts }}
+  {{- range $_, $host := $ingressHosts }}
+  - host: {{ $host | quote }}
+    http:
+      paths:
+      - path: /{{ $path }}/?(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $serviceName }}-ui
+            port: 
+              number: {{ int $servicePort }}
+  {{- end }}
+  {{- else }}
+  - http:
+      paths:
+      - path: /{{ $path }}/?(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $serviceName }}-ui
+            port: 
+              number: {{ int $servicePort }}
+  {{- end }}
+{{- end }}
+
+
+{{- end -}}

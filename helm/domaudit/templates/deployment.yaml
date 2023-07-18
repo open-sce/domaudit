@@ -39,6 +39,36 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
+        - name: domaudit-ui
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          args:
+            - gunicorn
+            - -b
+            - 0.0.0.0:{{ .Values.ui.config.port }}
+            - domaudit_ui.app:create_app()
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ui-http
+              containerPort: {{ .Values.ui.config.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.ui.resources | nindent 12 }}
+          env:
+            {{- with .Values.podEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            - name: UI_PORT
+              value: "{{ .Values.ui.config.port }}"
+            - name: DOMINO_API_HOST
+              value: "http://nucleus-frontend.{{ .Release.Namespace }}:80"
+            - name: DOMINO_AUDIT_HOST
+              value: "http://localhost:{{ .Values.config.port }}"
+            {{- if .Values.ui.ingress.enabled }}
+            - name: DOMINO_PROXY_PATH
+              value: {{ .Values.ui.ingress.path }}
+            {{- end}}
         - name: domaudit
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

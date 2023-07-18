@@ -28,5 +28,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY --chown=domino:domino ./gunicorn-gevent.conf.py /usr/local/bin/gunicorn-gevent.conf.py
 
 COPY --chown=domino:domino domaudit /app/domaudit
+COPY --chown=domino:domino domaudit_ui /app/domaudit_ui
 
 USER domino

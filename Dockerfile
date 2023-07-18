@@ -27,5 +27,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY ./gunicorn-gevent.conf.py /usr/local/bin/gunicorn-gevent.conf.py
 
 COPY domaudit /app/domaudit
-
+COPY domaudit_ui /app/domaudit_ui
 USER domino
