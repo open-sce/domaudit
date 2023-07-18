@@ -11,6 +11,11 @@ This includes 3 endpoints:
 
 - User Login Audit: An audit log of all user login activities. This endpoint requires an Admin role in domino
 
+This service provides 3 ways to request audit reports:
+- A CLI, which is designed to run either inside a Domino workspace or externally
+- An API endpoint, authorised by your Domino API key
+- A web application, deployed as a standalone service
+
 ---
 
 ### Helm installation:
@@ -18,11 +23,20 @@ This includes 3 endpoints:
 ```
 helm upgrade --install domaudit helm/domaudit -n domino-platform
 ```
+<br>  
 
-Optional: enable ingress
+Optional: enable direct API ingress
 ```
 --set ingress.enabled=true --set ingress.host=xxxx.domino.tech 
 ```
+<br>  
+
+Optional: enable Domaudit webapp
+```
+--set ui.ingress.enabled=true --set ui.ingress.host=xxxx.domino.tech 
+```
+<br>  
+
 Required for istio enabled installs
 ```
 --set istio.enabled=true
