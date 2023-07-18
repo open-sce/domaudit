@@ -29,6 +29,7 @@ class Endpoint:
 
 def build_app(app, endpoints: List[Endpoint], base_url):
     
+    DOMINO_USER_API_KEY = os.environ.get("DOMINO_USER_API_KEY",None)
     instance_input = dbc.Row(
         [   dbc.Label("DomAudit URL", html_for="instance_url", width=2),
             dbc.Col(
@@ -202,6 +203,9 @@ def project_audit(auth_token, url, audit_type, project_name, project_id, project
     return response.json()
 
 def get_endpoints(base_url):
+    logging_level = logging.getLevelName(os.getenv("DOMINO_LOG_LEVEL", "INFO").upper())
+    logging.basicConfig(level=logging_level)
+    log = logging.getLogger(__name__)
 
     log.info("Getting API endpoints...")
     url = os.path.join(base_url, "endpoints")
@@ -221,7 +225,7 @@ def get_endpoints(base_url):
 
     return endpoints
     
-if __name__ == "__main__":
+def create_app():
 
     # Set up logging
     DOMINO_LOG_LEVEL = os.getenv("DOMINO_LOG_LEVEL", "INFO").upper()
@@ -239,24 +243,33 @@ if __name__ == "__main__":
 
     # Get other relevant environment variables
     DOMINO_PROJECT_OWNER = os.environ.get("DOMINO_PROJECT_OWNER")
-    DOMINO_USER_API_KEY = os.environ.get("DOMINO_USER_API_KEY")
     DOMINO_PROJECT_NAME = os.environ.get("DOMINO_PROJECT_NAME")
     DOMINO_RUN_ID = os.environ.get("DOMINO_RUN_ID")
+    DOMINO_PROXY_PATH = os.environ.get("DOMINO_PROXY_PATH")
 
     # Check if we are running inside Domino
     if (DOMINO_RUN_ID is not None):
         # We are in Domino
-        log.info("DOMINO_RUN_ID is {}. We are running inside Domino.")
+        log.info(f"DOMINO_RUN_ID is {DOMINO_RUN_ID}. We are running inside Domino.")
         DOMINO_USER_API_KEY = os.environ.get("DOMINO_USER_API_KEY")
 
         # Configure Dash to recognize the URL of the container
         run_url = "/" + DOMINO_PROJECT_OWNER + "/" + DOMINO_PROJECT_NAME + "/r/notebookSession/"+ DOMINO_RUN_ID + "/"
         app = dash.Dash(__name__, routes_pathname_prefix="/", requests_pathname_prefix=run_url, external_stylesheets=[dbc.themes.BOOTSTRAP])
-    
+    elif (DOMINO_PROXY_PATH is not None):
+        # Running on a proxy path
+        log.info(f"DOMINO_PROXY_PATH is {DOMINO_PROXY_PATH}")
+        # Configure Dash to recognize the URL of the proxy
+        app = dash.Dash(__name__, url_base_pathname=f"/{DOMINO_PROXY_PATH}/", external_stylesheets=[dbc.themes.BOOTSTRAP])
+
     else:
         log.info("DOMINO_RUN_ID is None. The app has been deployed outside of Domino.")
         app = dash.Dash(__name__, routes_pathname_prefix='/', external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     endpoints = get_endpoints(DOMINO_AUDIT_HOST)
     build_app(app, endpoints, DOMINO_AUDIT_HOST)
-    app.run_server(port=8888, host='0.0.0.0', debug=True)
+    return app.server
+
+if __name__ == "__main__":
+    UI_PORT = os.getenv("UI_PORT",8888)
+    create_app().run(port=UI_PORT, host='0.0.0.0', debug=True)

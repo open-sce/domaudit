@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "domaudit.fullname" . }}-ui
+  labels:
+    {{- include "domaudit.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.ui.service.type }}
+  ports:
+    - port: {{ .Values.ui.service.port }}
+      targetPort: ui-http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "domaudit.selectorLabels" . | nindent 4 }}

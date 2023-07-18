@@ -17,6 +17,8 @@ spec:
     ports:
     - protocol: TCP
       port: {{ int .Values.config.port }}
+    - protocol: TCP
+      port: {{ int .Values.ui.config.port }}
   podSelector: 
     matchLabels:
       {{- include "domaudit.selectorLabels" . | nindent 6 }}
