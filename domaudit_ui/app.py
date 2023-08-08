@@ -68,19 +68,6 @@ def build_app(app, endpoints: List[Endpoint], base_url):
         className="mb-3",
     )
 
-    project_id_input = dbc.Row(
-        [
-            dbc.Label("Project ID", html_for="project_id", width=2),
-            dbc.Col(
-                dbc.Input(
-                    type="text", id="project_id", placeholder="Enter Domino Project ID", value="6492f7f37e68fa64ea80f2d9"
-                ),
-                width=10,
-            ),
-        ],
-        className="mb-3",
-    )
-
     project_owner_input = dbc.Row(
         [
             dbc.Label("Project Owner", html_for="project_owner", width=2),
@@ -125,7 +112,6 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             api_input,
             project_owner_input,
             project_input,
-            project_id_input,
             radio_items,
             dbc.Button("Submit", id="submit-val")
         ]
@@ -155,17 +141,16 @@ def build_app(app, endpoints: List[Endpoint], base_url):
         inputs = [Input("form", "n_submit")],
         state = [State("instance_url", "value"),
         State("api-key", "value"),
-        State("project_name", "value"),    
-        State("project_id", "value"),    
+        State("project_name", "value"),        
         State("project_owner", "value"),    
         State("audit_type", "value")],
         prevent_initial_call=True
     )
 
     def generate_report(n_clicks, instance_url, api_key, project_name, 
-                        project_id, project_owner, audit_type):
+                         project_owner, audit_type):
         try:
-            report = project_audit(api_key, instance_url, audit_type, project_name, project_id, project_owner)
+            report = project_audit(api_key, instance_url, audit_type, project_name, project_owner)
         except Exception as e:
             return str(e)
 
@@ -181,14 +166,26 @@ def build_app(app, endpoints: List[Endpoint], base_url):
                                             export_format="csv"),
                         className="dbc")
         
-def project_audit(auth_token, url, audit_type, project_name, project_id, project_owner):
+def project_audit(auth_token, url, audit_type, project_name, project_owner):
     
+    log = logging.getLogger(__name__)
     headers = {"X-Domino-Api-Key":auth_token}
-
+    
+    project_url = f"{os.environ.get('DOMINO_API_HOST')}/v4/gateway/projects/findProjectByOwnerAndName"
+    params = {"ownerName": project_owner,
+              "projectName": project_name }
+    
+    try:
+        result = requests.get(project_url, params=params, headers=headers)
+        project_id = result.json().get("id", None)
+    except requests.exceptions.RequestException as err:
+        log.error("Can't get project ID from {}. Aborting...".format(project_url))
+        ## Is there a way to raise this error to the user? not sure how
+        sys.exit(1)
     data = {"project_name": project_name,
-            "project_owner": project_owner,
-            "project_id": project_id, #"6492f7f37e68fa64ea80f2d91",
-            "links":"false"}
+        "project_owner": project_owner,
+        "project_id": project_id, #"6492f7f37e68fa64ea80f2d91",
+        "links":"true"}
 
     # Prepare API endpoint
     url = url.rstrip("/")
