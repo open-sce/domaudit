@@ -100,8 +100,17 @@ def convert_datetime(time_str):
     return datetime.datetime.fromtimestamp(time_str / 1e3, tz=datetime.timezone.utc).strftime('%F %X:%f %Z')
 
 
-def generate_report(jobs, goals, project_name, project_owner, project_id, create_links):
+def generate_report(jobs, goals, project_name, project_owner, project_id, create_links, auth_header):
     tidy_jobs = {}
+    # Pull domino hostname
+    domino_host = api_host
+    url = f"{api_host}/currentInstallConfig"
+    result = requests.get(url, headers=auth_header)
+    if result.status_code != 200:
+        api_fail(result.status_code, "current_install_config")
+    else:
+        domino_host = result.json()['host']
+
     for job in jobs:
         tidy_jobs[job] = {}
         comments = []
@@ -135,6 +144,20 @@ def generate_report(jobs, goals, project_name, project_owner, project_id, create
                 # dataset_name = dataset.get("datasetName", None)
                 dataset_names.append(datasets)
         tidy_jobs[job]['Datasets'] = dataset_names
+
+        datavolume_names = []
+        if jobs.get(job, None).get("dependentExternalVolumeMounts", None):
+            for volume in jobs.get(job, None).get("dependentExternalVolumeMounts", '[]'):
+                volume_info = {
+                    "Volume Name": volume.get("name", None)
+                }
+                if volume.get("mount",None):
+                    volume_info["Volume Mount Point"] = volume.get("mount").get("mountPath",None)
+                    volume_info["Volume Read Only"] = volume.get("mount").get("readOnly",None)
+                
+                datavolume_names.append(volume_info)
+        tidy_jobs[job]['External Volumes'] = datavolume_names
+        
         goal_names = []
         if jobs.get(job, None).get("goalIds", None):
             for goal_id in jobs.get(job, None).get("goalIds", '[]'):
@@ -145,9 +168,9 @@ def generate_report(jobs, goals, project_name, project_owner, project_id, create
         endStateCommit = jobs.get(job, None).get("endState", None).get("commitId", None)
         tidy_jobs[job]["Commit ID"] = endStateCommit
         if create_links:
-            commit_url = f"{api_host}/u/{project_owner}/{project_name}/browse?commitId={endStateCommit}"
+            commit_url = f"{domino_host}/u/{project_owner}/{project_name}/browse?commitId={endStateCommit}"
             tidy_jobs[job]["Results Commit URL"] = commit_url
-            audit_url = f"{api_host}/projects/{project_id}/auditLog"
+            audit_url = f"{domino_host}/projects/{project_id}/auditLog"
             tidy_jobs[job]["Audit URL"] = audit_url
         tidy_jobs[job]["Command"] = jobs.get(job, None).get("jobRunCommand", None)
         tidy_jobs[job]["Hardware Tier"] = jobs.get(job, None).get("hardwareTier", None)
@@ -257,7 +280,7 @@ def main(auth_header, requesting_user, args=None):
     jobs = aggregate_job_data(job_ids, auth_header, threads=threads)
     t = datetime.datetime.now() - t
     logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
-    report_data = generate_report(jobs,goals,project_name, project_owner, project_id, create_links)
+    report_data = generate_report(jobs,goals,project_name, project_owner, project_id, create_links, auth_header)
     logging.info(f"Audit report generated in {str(round(t.total_seconds(),1))} seconds.")
     return report_data
 
