@@ -1,11 +1,8 @@
 import os 
-import io
 import logging
 import dash
 import requests
-import json
-import sys
-import urllib
+import traceback
 
 from urllib.parse import urljoin
 
@@ -18,7 +15,7 @@ from dash import dash_table
 from dataclasses import dataclass
 from typing import List
 
-DOMAUDIT_VERSION = "1.0"
+DOMAUDIT_VERSION = "1.1"
 
 @dataclass
 class Endpoint:
@@ -34,10 +31,10 @@ def build_app(app, endpoints: List[Endpoint], base_url):
         [   dbc.Label("DomAudit URL", html_for="instance_url", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="url", id="instance_url", placeholder="Enter DomAudit Instance URL", value = base_url
+                    type="url", id="instance_url", placeholder="Enter DomAudit Instance URL", value = base_url, required=True
                 ),
                 width=10,
-            ),
+            )
         ],
         className="mb-3"
     )
@@ -47,7 +44,7 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             dbc.Label("Domino User API key", html_for="api-key", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="password", id="api-key", placeholder="Enter API key", value=DOMINO_USER_API_KEY
+                    type="password", id="api-key", placeholder="Enter API key", value=DOMINO_USER_API_KEY, required=True
                 ),
                 width=10,
             ),
@@ -60,7 +57,7 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             dbc.Label("Project Name", html_for="project_name", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="text", id="project_name", placeholder="Enter Domino Project name", value="test"
+                    type="text", id="project_name", placeholder="Enter Domino Project name", required=True
                 ),
                 width=10,
             ),
@@ -73,7 +70,7 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             dbc.Label("Project Owner", html_for="project_owner", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="text", id="project_owner", placeholder="Enter Project Owner username", value="nmanchev"
+                    type="text", id="project_owner", placeholder="Enter Project Owner username", required=True
                 ),
                 width=10,
             ),
@@ -82,11 +79,9 @@ def build_app(app, endpoints: List[Endpoint], base_url):
     )
 
     call_options = []
-    #option_idx = 0;
-    for e in endpoints:
-        call_options.append({"label": e.name, "value": e.endpoint, "title": e.description}) #"disabled": not e.admin
-        #option_idx += 1
 
+    for e in endpoints:
+        call_options.append({"label": e.name, "value": e.endpoint, "title": e.description})
 
     radio_items = dbc.Row(
         [
@@ -132,12 +127,12 @@ def build_app(app, endpoints: List[Endpoint], base_url):
         header,
         form,
         html.Br(),
-        html.Div(id="output")
-    
+        html.Div(id="output"),
+        dbc.Alert("", is_open=False, id="error-alert", color="danger") 
     ])
  
     @app.callback(
-        Output("output", "children"), 
+        [Output("output", "children"), Output("error-alert", "children"), Output("error-alert", "is_open")],
         inputs = [Input("form", "n_submit")],
         state = [State("instance_url", "value"),
         State("api-key", "value"),
@@ -149,10 +144,11 @@ def build_app(app, endpoints: List[Endpoint], base_url):
 
     def generate_report(n_clicks, instance_url, api_key, project_name, 
                          project_owner, audit_type):
+        
         try:
             report = project_audit(api_key, instance_url, audit_type, project_name, project_owner)
         except Exception as e:
-            return str(e)
+            return "", get_stack_trace(), True
 
         df = pd.DataFrame.from_dict(report, orient="index", dtype="string")
         df = df.rename_axis("Job ID").reset_index()
@@ -164,8 +160,17 @@ def build_app(app, endpoints: List[Endpoint], base_url):
                                             sort_action="native",
                                             page_size= 10,
                                             export_format="csv"),
-                        className="dbc")
-        
+                        className="dbc"), "", False
+
+def get_stack_trace():
+    """Formats the current stack trace with html.Br() breaks instead of '\n' so it can
+       be properly rendered in Dash. 
+    """
+    trace = traceback.format_exc().splitlines( )
+    result = [html.Br()] * (len(trace) * 2 - 1)
+    result[0::2] = trace
+    return result
+
 def project_audit(auth_token, url, audit_type, project_name, project_owner):
     
     log = logging.getLogger(__name__)
@@ -177,15 +182,19 @@ def project_audit(auth_token, url, audit_type, project_name, project_owner):
     
     try:
         result = requests.get(project_url, params=params, headers=headers)
-        project_id = result.json().get("id", None)
     except requests.exceptions.RequestException as err:
         log.error("Can't get project ID from {}. Aborting...".format(project_url))
-        ## Is there a way to raise this error to the user? not sure how
-        sys.exit(1)
+        raise err
+    
+    if result.status_code == 200:
+        project_id = result.json().get("id", None)
+    else:
+        raise Exception("{} returned {}".format(project_url, result.status_code))
+    
     data = {"project_name": project_name,
-        "project_owner": project_owner,
-        "project_id": project_id, #"6492f7f37e68fa64ea80f2d91",
-        "links":"true"}
+            "project_owner": project_owner,
+            "project_id": project_id,
+            "links":"true"}
 
     # Prepare API endpoint
     url = url.rstrip("/")
@@ -193,11 +202,16 @@ def project_audit(auth_token, url, audit_type, project_name, project_owner):
 
     try:
         response = requests.get(url, headers=headers, params=data)
-        response.raise_for_status()
     except requests.exceptions.HTTPError as err:
-        raise
+        log.error("Can't fetch data from {}. Aborting...".format(url))
+        raise err
 
-    return response.json()
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception("{} returned {}".format(url, response.status_code))
+
+    return None
 
 def get_endpoints(base_url):
     logging_level = logging.getLevelName(os.getenv("DOMINO_LOG_LEVEL", "INFO").upper())
@@ -212,8 +226,8 @@ def get_endpoints(base_url):
         response = requests.get(url)
         response.raise_for_status()
     except requests.exceptions.RequestException as err:
-        log.error("Can't get endpoints from {}. Aborting...".format(base_url))
-        sys.exit(1)
+        raise Exception("Can't get endpoints from {}. Aborting...".format(base_url))
+        
 
     for x in response.json()["endpoints"]:
         e = Endpoint(x["name"], x["description"], x["endpoint"], x["admin"])
@@ -233,8 +247,7 @@ def create_app():
     # Get the DomAudit host
     DOMINO_AUDIT_HOST = os.environ.get("DOMINO_AUDIT_HOST")
     if (DOMINO_AUDIT_HOST is None):
-        log.error("DOMINO_AUDIT_HOST is not set. Aborting...")
-        sys.exit(1)
+        raise Exception("DOMINO_AUDIT_HOST is not set. Aborting...")
     else:
         log.info("DOMINO_AUDIT_HOST is set to {}".format(DOMINO_AUDIT_HOST))
 
