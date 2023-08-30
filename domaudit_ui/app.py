@@ -11,11 +11,12 @@ import pandas as pd
 
 from dash import Dash, dcc, html, Input, Output, State, callback
 from dash import dash_table
+from dash import ALL
 
 from dataclasses import dataclass
 from typing import List
 
-DOMAUDIT_VERSION = "1.1"
+DOMAUDIT_VERSION = "1.2"
 
 @dataclass
 class Endpoint:
@@ -27,11 +28,13 @@ class Endpoint:
 def build_app(app, endpoints: List[Endpoint], base_url):
     
     DOMINO_USER_API_KEY = os.environ.get("DOMINO_USER_API_KEY",None)
+
     instance_input = dbc.Row(
         [   dbc.Label("DomAudit URL", html_for="instance_url", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="url", id="instance_url", placeholder="Enter DomAudit Instance URL", value = base_url, required=True
+                    id={"type": "input-field", "index": "instance_url"}, 
+                    type="url",  placeholder="Enter DomAudit Instance URL", value = base_url, required=True
                 ),
                 width=10,
             )
@@ -44,7 +47,8 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             dbc.Label("Domino User API key", html_for="api-key", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="password", id="api-key", placeholder="Enter API key", value=DOMINO_USER_API_KEY, required=True
+                    id={"type": "input-field", "index": "api-key"},
+                    type="password", placeholder="Enter API key", value=DOMINO_USER_API_KEY, required=True
                 ),
                 width=10,
             ),
@@ -57,7 +61,8 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             dbc.Label("Project Name", html_for="project_name", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="text", id="project_name", placeholder="Enter Domino Project name", required=True
+                    id={"type": "input-field", "index": "project_name"},
+                    type="text", placeholder="Enter Domino Project name", required=True
                 ),
                 width=10,
             ),
@@ -70,7 +75,8 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             dbc.Label("Project Owner", html_for="project_owner", width=2),
             dbc.Col(
                 dbc.Input(
-                    type="text", id="project_owner", placeholder="Enter Project Owner username", required=True
+                    id={"type": "input-field", "index": "project_owner"},
+                    type="text", placeholder="Enter Project Owner username", required=True
                 ),
                 width=10,
             ),
@@ -99,23 +105,7 @@ def build_app(app, endpoints: List[Endpoint], base_url):
         className="mb-3"
     )
 
-
-    form = dbc.Form(
-        id="form",
-        children=[
-            instance_input,
-            api_input,
-            project_owner_input,
-            project_input,
-            radio_items,
-            dbc.Button("Submit", id="submit-val")
-        ]
-    )
-
-    # Set layout
-    image_path = "assets/my-image.png"
-
-    header = instance_input = dbc.Row(
+    header = dbc.Row(
         [
             dbc.Col(html.Img(src=dash.get_asset_url("logo.png"), style={"width":"200px"})),
             dbc.Col(html.H2("Domino Audit v" + DOMAUDIT_VERSION))
@@ -123,42 +113,89 @@ def build_app(app, endpoints: List[Endpoint], base_url):
         className="mb-3"
     )
 
+    # Set layout
+    image_path = "assets/my-image.png"
+
     app.layout = html.Div(style={"paddingLeft": "40px", "paddingRight": "40px"}, children=[
         header,
-        form,
+        radio_items,
+        html.Div(id="dynamic-form"),
         html.Br(),
-        html.Div(id="output"),
+        html.Div(id="output-table"),
         dbc.Alert("", is_open=False, id="error-alert", color="danger") 
     ])
- 
+
     @app.callback(
-        [Output("output", "children"), Output("error-alert", "children"), Output("error-alert", "is_open")],
+    Output("dynamic-form", "children"),
+    [Input("audit_type", "value")],
+    )
+    def update_form(selected_option):
+        
+        form = dbc.Alert("Unknown endpoint. You are likely running an older version of the UI.", 
+                         is_open=True, id="error-alert", color="danger")
+
+        if selected_option == "/project_audit":
+            form = dbc.Form(
+                id="form",
+                children = [
+                    instance_input,
+                    api_input,
+                    project_owner_input,
+                    project_input,
+                    dbc.Button("Submit", id="submit-button")
+                ]
+            )
+        elif selected_option == "/project_activity":
+            form = dbc.Form(
+                id="form",
+                children=[
+                    instance_input,
+                    api_input,
+                    project_owner_input,
+                    project_input,
+                    dbc.Button("Submit", id="submit-button")
+                ]
+            )
+        elif selected_option == "/user_audit":
+            form = dbc.Form(
+                id="form",
+                children=[
+                    instance_input,
+                    api_input,
+                    dbc.Button("Submit", id="submit-button")
+                ]
+            )
+        
+        return form
+
+    @app.callback(
+        [Output("output-table", "children"), 
+         Output("error-alert", "children"), 
+         Output("error-alert", "is_open")],
         inputs = [Input("form", "n_submit")],
-        state = [State("instance_url", "value"),
-        State("api-key", "value"),
-        State("project_name", "value"),        
-        State("project_owner", "value"),    
-        State("audit_type", "value")],
+        state = [State("audit_type", "value"),
+                 State({"type": "input-field", "index": ALL}, "value")],
         prevent_initial_call=True
     )
-
-    def generate_report(n_clicks, instance_url, api_key, project_name, 
-                         project_owner, audit_type):
+    def generate_report(n_submit, audit_type, input_fields):
         
+        if n_submit is None:
+          return "", "", False
+
         try:
-            report = project_audit(api_key, instance_url, audit_type, project_name, project_owner)
+            report = call_endpoint(audit_type, *input_fields)
         except Exception as e:
             return "", get_stack_trace(), True
 
         df = pd.DataFrame.from_dict(report, orient="index", dtype="string")
-        df = df.rename_axis("Job ID").reset_index()
+        df = df.rename_axis("ID").reset_index()
 
         return html.Div(dash_table.DataTable(id="output_table", data = df.to_dict("records"), 
                                             columns = [{"name": str(i), "id": str(i)} for i in df.columns],
                                             style_table={"overflowX": "auto"},
                                             filter_action="native",
                                             sort_action="native",
-                                            page_size= 10,
+                                            page_size= 20,
                                             export_format="csv"),
                         className="dbc"), "", False
 
@@ -171,30 +208,43 @@ def get_stack_trace():
     result[0::2] = trace
     return result
 
-def project_audit(auth_token, url, audit_type, project_name, project_owner):
-    
+#def project_audit(audit_type, url, auth_token, project_owner, project_name):
+def call_endpoint(audit_type,  *input_fields):
+
     log = logging.getLogger(__name__)
-    headers = {"X-Domino-Api-Key":auth_token}
+
+    if audit_type in ("/project_audit", "/project_activity"): 
+        url, auth_token, project_owner, project_name = input_fields
     
-    project_url = f"{os.environ.get('DOMINO_API_HOST')}/v4/gateway/projects/findProjectByOwnerAndName"
-    params = {"ownerName": project_owner,
-              "projectName": project_name }
+        # Get project_id
+        params = {"ownerName": project_owner,
+                  "projectName": project_name }
+        headers = {"X-Domino-Api-Key":auth_token}
     
-    try:
-        result = requests.get(project_url, params=params, headers=headers)
-    except requests.exceptions.RequestException as err:
-        log.error("Can't get project ID from {}. Aborting...".format(project_url))
-        raise err
-    
-    if result.status_code == 200:
-        project_id = result.json().get("id", None)
+        project_url = f"{os.environ.get('DOMINO_API_HOST')}/v4/gateway/projects/findProjectByOwnerAndName"
+
+        try:
+            result = requests.get(project_url, params=params, headers=headers)
+        except requests.exceptions.RequestException as err:
+            log.error("Can't get project ID from {}. Aborting...".format(project_url))
+            raise err
+        
+        if result.status_code == 200:
+            project_id = result.json().get("id", None)
+        else:
+            raise Exception("{} returned {}".format(project_url, result.status_code))
+        
+        data = {"project_name": project_name,
+                "project_owner": project_owner,
+                "project_id": project_id,
+                "links":"true"}
+
+    elif audit_type == "/user_audit":
+        url, auth_token = input_fields
+        headers = {"X-Domino-Api-Key":auth_token}
+        data = {}
     else:
-        raise Exception("{} returned {}".format(project_url, result.status_code))
-    
-    data = {"project_name": project_name,
-            "project_owner": project_owner,
-            "project_id": project_id,
-            "links":"true"}
+        raise Exception("Unknown request type.")
 
     # Prepare API endpoint
     url = url.rstrip("/")
@@ -270,11 +320,13 @@ def create_app():
         # Running on a proxy path
         log.info(f"DOMINO_PROXY_PATH is {DOMINO_PROXY_PATH}")
         # Configure Dash to recognize the URL of the proxy
-        app = dash.Dash(__name__, url_base_pathname=f"/{DOMINO_PROXY_PATH}/", external_stylesheets=[dbc.themes.BOOTSTRAP])
+        app = dash.Dash(__name__, url_base_pathname=f"/{DOMINO_PROXY_PATH}/", external_stylesheets=[dbc.themes.BOOTSTRAP],
+                        suppress_callback_exceptions=True)
 
     else:
         log.info("DOMINO_RUN_ID is None. The app has been deployed outside of Domino.")
-        app = dash.Dash(__name__, routes_pathname_prefix='/', external_stylesheets=[dbc.themes.BOOTSTRAP])
+        app = dash.Dash(__name__, routes_pathname_prefix='/', external_stylesheets=[dbc.themes.BOOTSTRAP],
+                        suppress_callback_exceptions=True)
 
     endpoints = get_endpoints(DOMINO_AUDIT_HOST)
     build_app(app, endpoints, DOMINO_AUDIT_HOST)
