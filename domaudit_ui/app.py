@@ -188,7 +188,6 @@ def build_app(app, endpoints: List[Endpoint], base_url):
             return "", get_stack_trace(), True
 
         df = pd.DataFrame.from_dict(report, orient="index", dtype="string")
-        df = df.rename_axis("ID").reset_index()
 
         return html.Div(dash_table.DataTable(id="output_table", data = df.to_dict("records"), 
                                             columns = [{"name": str(i), "id": str(i)} for i in df.columns],
