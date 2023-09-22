@@ -53,11 +53,13 @@ def cli():
 
 
     subparsers = parser.add_subparsers(title="Audits",required=True, dest="audit")
-    user_parser = subparsers.add_parser(name="user", help="User Audit")
+    user_parser = subparsers.add_parser(name="user", help="User Audit. Defaults to all rows, user --first/--last to request paginated data")
     user_parser.add_argument("--username", help="Domino username to filter audit records")
     user_parser.add_argument("--type", help="Event type to filter on")
     user_parser.add_argument("--date-from", help="Start date for filter - YYYY-MM-DD format",dest="dateFrom")
     user_parser.add_argument("--date-to", help="End date for filter - YYYY-MM-DD format", dest="dateTo")
+    user_parser.add_argument("--first", help="Start index for paginated requests (optional)",dest="first")
+    user_parser.add_argument("--last", help="End index for paginated requests (optional)", dest="max")
 
     project_parser = subparsers.add_parser(name="project", help="Project Audit")
     project_parser.add_argument("--project", help="Domino Project to audit, in the format OWNER/PROJECT", 

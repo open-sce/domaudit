@@ -36,7 +36,8 @@ def get_user_events(data=None):
                             password=keycloak_pwd,
                             realm_name="DominoRealm",
                             user_realm_name="master",
-                            verify=True)
+                            verify=True,
+                            timeout=300)
 
     users_list = keycloak_admin.get_users()
     all_users = dict()
@@ -50,12 +51,11 @@ def get_user_events(data=None):
                 args["user"] = user['id']
                 break
     
-    # We need to do this because python-keycloak's get_events
-    #  does not support pagination, so we call the __fetch_all
-    #  class method directly
-
     path = {"realm-name": keycloak_admin.realm_name}
-    events = keycloak_admin._KeycloakAdmin__fetch_all(URL_ADMIN_EVENTS.format(**path),args)
+    if 'first' in args and 'max' in args:
+        events = keycloak_admin._KeycloakAdmin__fetch_paginated(URL_ADMIN_EVENTS.format(**path),args)
+    else:
+        events = keycloak_admin._KeycloakAdmin__fetch_all(URL_ADMIN_EVENTS.format(**path),args)
 
     response = {}
     for event in events:
