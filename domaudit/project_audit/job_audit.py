@@ -44,11 +44,11 @@ def get_project_owner(project_id, auth_header):
     return owner_username
 
 
-def get_jobs(project_id, auth_header):
+def get_jobs(project_id, auth_header, page_size, page_number):
     """
     This will return a list of all job IDs from the selected project.
     """
-    url = f"{api_host}/{constants.JOBS_ENDPOINT}?projectId={project_id}&page_size=1000&show_archived=true"
+    url = f"{api_host}/{constants.JOBS_ENDPOINT}?projectId={project_id}&page_size={page_size}&page_no={page_number}&show_archived=true"
     result = requests.get(url, headers=auth_header)
     if result.status_code != 200:
         api_fail(result.status_code, "get_jobs")
@@ -266,14 +266,16 @@ def main(auth_header, requesting_user, args=None):
     project_id = args.get('project_id', None)
     project_name = args.get('project_name', None)
     project_owner = args.get('project_owner', None)
-    create_links = args.get('links', False)
+    create_links = args.get('links', "False")
+    page_size = args.get('page_size', 500)
+    page_number = args.get('page_number', 1)
     create_links = True if create_links.lower() == "true" else False
     # threads = int(args.get('threads', 1))
     threads = os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1)
     logging.info(f"Args sent: {args}")
     logging.info(f"{requesting_user} requested audit report for {project_name}...")
     goals = get_goals(project_id, auth_header)
-    job_ids = get_jobs(project_id, auth_header)
+    job_ids = get_jobs(project_id, auth_header, page_size, page_number)
     logging.info(f"Found {len(job_ids)} jobs to report. Aggregating job metadata...")
     logging.info(f"Attempting API queries using {threads} thread(s)...")
     t = datetime.datetime.now()    

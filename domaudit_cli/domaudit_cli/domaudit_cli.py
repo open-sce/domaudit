@@ -65,6 +65,8 @@ def cli():
     project_parser.add_argument("--project", help="Domino Project to audit, in the format OWNER/PROJECT", 
                                 default="/".join([getenv("DOMINO_PROJECT_OWNER"),getenv("DOMINO_PROJECT_NAME")]))
     project_parser.add_argument("--links", action=argparse.BooleanOptionalAction, help="Include links back to Domino", default=False)
+    project_parser.add_argument("--page-size", help="Page size of returned jobs, default 1000", default=1000)
+    project_parser.add_argument("--page-number", help="Page number to return, default 1", default=1)
 
     activity_parser = subparsers.add_parser(name="activity", help="Project Activity")
     activity_parser.add_argument("--project", help="Domino Project to audit, in the format OWNER/PROJECT", 
@@ -116,7 +118,9 @@ def cli():
             "project_id": project_id,
             "project_name": project_name,
             "project_owner": project_owner,
-            "links": links
+            "links": links,
+            "page_size": args.page_size,
+            "page_number": args.page_number,
         }
         output = make_call(f"{DOMAUDIT_HOST}{PROJECT_AUDIT_PATH}",project_args)
     elif args.audit == "activity":
