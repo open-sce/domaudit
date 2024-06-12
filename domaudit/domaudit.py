@@ -103,10 +103,10 @@ def create_app(test_config=None):
 
     @app.route("/project_audit", methods=["GET"])
     @authenticate_user
-    def project_audit(user, auth_header,**kwargs):
+    async def project_audit(user, auth_header,**kwargs):
         logging.info(f"Authenticated request for project_audit from {user.get('email', None)}")
         requesting_user = user.get('userName', None)
-        result = job_audit.main(auth_header, requesting_user, request.args)
+        result = await job_audit.main(auth_header, requesting_user, request.args)
         
         return result
 

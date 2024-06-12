@@ -11,3 +11,5 @@ joblib==1.2.0
 pandas==1.5.3
 dash==2.11.1
 dash-bootstrap-components==1.4.1
+aiohttp
+asyncio

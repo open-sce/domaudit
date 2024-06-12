@@ -3,6 +3,8 @@ import logging
 import requests
 import datetime
 from joblib import Parallel, delayed
+import asyncio
+from aiohttp import ClientSession
 from domaudit.services import constants
 from flask import make_response
 
@@ -74,6 +76,32 @@ def get_job_data(job_id, auth_header):
             job_data.update(result.json())
     return job_data
 
+async def get_async_api_data(endpoint, header, queue):
+    url = f"{api_host}{endpoint}"
+
+    async with ClientSession() as session:
+        async with session.get(url,header=header) as response:
+            if response.status_code != 200:
+                api_fail(response.status_code, "get_async_api_data")
+            await queue.put(response.json())
+
+async def get_job_data_async(job_id, auth_header):
+    endpoints = [f"/{constants.JOBS_ENDPOINT}/{job_id}",
+                 f"/{constants.JOBS_ENDPOINT}/{job_id}/runtimeExecutionDetails",
+                 f"/{constants.JOBS_ENDPOINT}/{job_id}/comments",
+                 f"/{constants.JOBS_ENDPOINT}/job/{job_id}/artifactsInfo"]
+    job_data = {}
+
+    queue = asyncio.Queue()
+    async with asyncio.TaskGroup() as group:
+        for endpoint in endpoints:
+            group.create_task(get_async_api_data(endpoint, auth_header, queue ))
+
+    while not queue.empty():
+        job_data.update(await queue.get())
+    
+    return job_data
+
 
 def get_goals(project_id, auth_header):
     url = f"{api_host}/{constants.PROJECTMANAGEMENT_ENDPOINT}/{project_id}/goals"
@@ -88,9 +116,12 @@ def get_goals(project_id, auth_header):
 
 def aggregate_job_data(job_ids, auth_header, threads):
     jobs = {}
-    def process(job_id):
-        return get_job_data(job_id, auth_header)
-    result = Parallel(n_jobs=threads)(delayed(process)(job_id) for job_id in job_ids)
+    result = []
+    #def process(job_id):
+    #    return get_job_data_async(job_id, auth_header)
+    #result = Parallel(n_jobs=threads)(delayed(process)(job_id) for job_id in job_ids)
+    for job_id in job_ids:
+        result.append(asyncio.run(get_job_data_async(job_id, auth_header)))
     for job in result:
         jobs[job.get("id", None)] = job
     return jobs
@@ -255,7 +286,7 @@ def get_project_activity(auth_header, requesting_user, args=None):
     return output
 
 
-def main(auth_header, requesting_user, args=None):
+async def main(auth_header, requesting_user, args=None):
     t0 = datetime.datetime.now()
     if not all(key in args for key in ("project_name","project_owner","project_id")):
         logging.error(f"No project details have been supplied. Args sent: {args}")
@@ -271,7 +302,7 @@ def main(auth_header, requesting_user, args=None):
     page_number = args.get('page_number', 1)
     create_links = True if create_links.lower() == "true" else False
     # threads = int(args.get('threads', 1))
-    threads = os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1)
+    threads = int(os.getenv("PROJECT_AUDIT_WORKER_THREAD_COUNT",1))
     logging.info(f"Args sent: {args}")
     logging.info(f"{requesting_user} requested audit report for {project_name}...")
     goals = get_goals(project_id, auth_header)
@@ -279,7 +310,7 @@ def main(auth_header, requesting_user, args=None):
     logging.info(f"Found {len(job_ids)} jobs to report. Aggregating job metadata...")
     logging.info(f"Attempting API queries using {threads} thread(s)...")
     t = datetime.datetime.now()    
-    jobs = aggregate_job_data(job_ids, auth_header, threads=threads)
+    jobs = await aggregate_job_data(job_ids, auth_header, threads=threads)
     t = datetime.datetime.now() - t
     logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
     report_data = generate_report(jobs,goals,project_name, project_owner, project_id, create_links, auth_header)
@@ -288,4 +319,4 @@ def main(auth_header, requesting_user, args=None):
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
