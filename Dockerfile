@@ -1,6 +1,5 @@
 FROM cgr.dev/dominodatalab.com/python:3.11.9-dev AS builder
 USER root
-WORKDIR /app
 RUN addgroup --system --gid 1000 domino && \
     adduser --system \
     -h / \
