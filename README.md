@@ -47,7 +47,7 @@ Required for istio enabled installs
 
 Add the CLI to any domino compute environment to run audits from inside a workspace
 ```
-RUN pip install https://mirrors.domino.tech/domaudit/domaudit_cli-0.0.6-py3-none-any.whl --user
+RUN pip install https://mirrors.domino.tech/domaudit/domaudit_cli-0.0.7-py3-none-any.whl --user
 ```
 
 In a workspace with the CLI installed, run `domaudit --help` to see a list of available options
