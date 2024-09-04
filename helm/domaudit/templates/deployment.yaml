@@ -43,7 +43,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          args:
+          command:
             - gunicorn
             - -b
             - 0.0.0.0:{{ .Values.ui.config.port }}
@@ -73,7 +73,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          args:
+          command:
             - gunicorn
             - domaudit.domaudit:create_app()
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -105,6 +105,8 @@ spec:
               value: "mongodb-replicaset.{{ .Release.Namespace }}:27017"
             - name: KEYCLOAK_HOST
               value: "keycloak-http.{{ .Release.Namespace }}:80"
+            - name: PROJECT_AUDIT_HTTP_THREAD_COUNT
+              value: "{{ .Values.http_threads }}"
             - name: GIT_USERNAME
               valueFrom:
                 secretKeyRef:
