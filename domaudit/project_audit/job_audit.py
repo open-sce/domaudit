@@ -94,11 +94,12 @@ async def get_async_api_data(endpoint, header, queue, session):
             data = await response.json()
             await queue.put(data)
 
-async def get_job_data_async(job_id, auth_header, session):
+async def get_job_data_async(job_id, project_id, auth_header, session):
     endpoints = [f"/{constants.JOBS_ENDPOINT}/{job_id}",
                  f"/{constants.JOBS_ENDPOINT}/{job_id}/runtimeExecutionDetails",
                  f"/{constants.JOBS_ENDPOINT}/{job_id}/comments",
-                 f"/{constants.JOBS_ENDPOINT}/job/{job_id}/artifactsInfo"]
+                 f"/{constants.JOBS_ENDPOINT}/job/{job_id}/artifactsInfo",
+                 f"/{constants.JOBS_ENDPOINT}/project/{project_id}/codeInfo/{job_id}"]
     job_data = {}
 
     queue = asyncio.Queue()
@@ -126,7 +127,7 @@ def get_goals(project_id, auth_header):
     return goals
 
 
-async def aggregate_job_data(job_ids, auth_header, threads):
+async def aggregate_job_data(job_ids, project_id, auth_header, threads):
     """
     Aggregate job data for multiple job IDs asynchronously
     """
@@ -134,7 +135,7 @@ async def aggregate_job_data(job_ids, auth_header, threads):
     connector = TCPConnector(limit=threads)
     async with ClientSession(connector=connector,headers=auth_header) as session:  # Use a single session for all requests
         # Create tasks for each job ID
-        tasks = [get_job_data_async(job_id, auth_header, session) for job_id in job_ids]
+        tasks = [get_job_data_async(job_id, project_id, auth_header, session) for job_id in job_ids]
         results = await asyncio.gather(*tasks)  # Await all tasks
 
     # Update the jobs dictionary with the results
@@ -176,7 +177,8 @@ def generate_report(jobs, goals, project_name, project_owner, project_id, create
                 repo_details = {
                     "Repo URI": repo.get("uri", None),
                     "Starting Branch": repo.get("startingBranch", None),
-                    "Starting Commit ID ": repo.get("startingCommitId", None)
+                    "Starting Commit ID ": repo.get("startingCommitId", None) ,
+                    "Starting Commit URI ": repo.get("startingCommitUri", None)
                 }
                 # repo_uri = repo.get("uri", None)
                 git_repos.append(repo_details)
@@ -217,9 +219,19 @@ def generate_report(jobs, goals, project_name, project_owner, project_id, create
             if jobs.get(job).get("endState"):
               endStateCommit = jobs.get(job).get("endState").get("commitId", None)
         tidy_jobs[job]["Commit ID"] = endStateCommit
+        if jobs.get(job, None).get("mainRepo", None):
+            main_repo_commit_url = jobs.get(job).get("mainRepo").get("commitResourceLink", None)
+        else:
+            commit_detail = jobs.get(job, {}).get("commitDetails", {})
+            main_repo_commit = commit_detail.get("inputCommitId", None)
+            if main_repo_commit:
+                main_repo_commit_url = f"{domino_host}/u/{project_owner}/{project_name}/browse?commitId={main_repo_commit}"
+            else:
+                main_repo_commit_url = None
         if create_links:
             commit_url = f"{domino_host}/u/{project_owner}/{project_name}/browse?commitId={endStateCommit}"
             tidy_jobs[job]["Results Commit URL"] = commit_url
+            tidy_jobs[job]["Main Repo Commit URL"] = main_repo_commit_url
             audit_url = f"{domino_host}/projects/{project_id}/auditLog"
             tidy_jobs[job]["Audit URL"] = audit_url
         tidy_jobs[job]["Command"] = jobs.get(job, None).get("jobRunCommand", None)
@@ -331,7 +343,7 @@ def main(auth_header, requesting_user, args=None):
     logging.info(f"Found {len(job_ids)} jobs to report. Aggregating job metadata...")
     logging.info(f"Attempting API queries using {threads} thread(s)...")
     t = datetime.datetime.now()    
-    jobs = asyncio.run(aggregate_job_data(job_ids, auth_header, threads=threads))
+    jobs = asyncio.run(aggregate_job_data(job_ids, project_id, auth_header, threads=threads))
     t = datetime.datetime.now() - t
     logging.info(f"Queries succeeded in {str(round(t.total_seconds(),1))} seconds.")     
     report_data = generate_report(jobs,goals,project_name, project_owner, project_id, create_links, auth_header)
