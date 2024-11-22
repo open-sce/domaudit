@@ -16,7 +16,7 @@ from dash import ALL
 from dataclasses import dataclass
 from typing import List
 
-DOMAUDIT_VERSION = "1.0.3"
+DOMAUDIT_VERSION = "1.0.4"
 
 @dataclass
 class Endpoint:
