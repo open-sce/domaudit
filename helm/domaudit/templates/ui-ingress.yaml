@@ -22,5 +22,6 @@ metadata:
   {{- end}}
     {{- include "common.ingress.uiistioAnnotations" . | nindent 4 }}
 spec:
+  ingressClassName: {{ .Values.ingress.class }}
   {{- include "common.ingress.uifullspec" . | indent 2 }}
 {{- end }}
