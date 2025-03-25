@@ -34,16 +34,16 @@ podLabels: {}
 
 podEnv: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext: 
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  capabilities:
+     drop:
+     - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
 
 service:
   type: ClusterIP
